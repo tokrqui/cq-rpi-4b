@@ -10,7 +10,7 @@ pcb_hole_padding = 3.5
 
 usb_h = 15.6
 
-shell_allowance = 0.2
+allowance = 0.2
 shell_wall_h_ext = 1
 wall_thicknes = 3
 
@@ -44,59 +44,59 @@ def make_pcb():
 def make_shell():
     sd_l_margin = 2
     sd_h_margin = 1.5
-    inner_w = pcb_w + shell_allowance
-    inner_l = pcb_l + sd_l_margin + shell_allowance
+    inner_w = pcb_w + allowance
+    inner_l = pcb_l + sd_l_margin + allowance
     outer_w = inner_w + wall_thicknes*2
     outer_l = inner_l + wall_thicknes*2
 
 
-    from_pcb_top_to_shell_bottom =  sd_h_margin + shell_allowance + pcb_h
+    shell_inner_bottom_z =  -pcb_h - sd_h_margin - allowance 
     leg_height = sd_h_margin
-    top_inner_z = usb_h + shell_allowance 
-    wall_top_z = top_inner_z + wall_thicknes
-    wall_bottom_z = -wall_thicknes - from_pcb_top_to_shell_bottom
+    top_inner_z = usb_h + allowance 
+    wall_outer_top_z = top_inner_z + wall_thicknes
+    wall_outer_bottom_z = -wall_thicknes + shell_inner_bottom_z
 
-    outer_h = wall_top_z - wall_bottom_z
+    outer_h = wall_outer_top_z - wall_outer_bottom_z
     outer_box = (
         Workplane("XY", origin=(0, 0, 0))
             .box(outer_w, outer_l, outer_h)
             .chamfer(wall_thicknes/2)
-            .translate((inner_w/2,inner_l/2-sd_l_margin,top_inner_z/2))
+            .translate((inner_w/2, inner_l/2-sd_l_margin, top_inner_z/2))
             .val()
     )
 
-    inner_h = top_inner_z + from_pcb_top_to_shell_bottom
+    inner_h = top_inner_z - shell_inner_bottom_z
     inner_box = (
         Workplane("XY", origin=(0, 0, 0))
             .box(inner_w, inner_l, inner_h)
             #.chamfer(wall_thicknes/2)
-            .translate((inner_w/2,inner_l/2-sd_l_margin,top_inner_z/2))
+            .translate((inner_w/2, inner_l/2-sd_l_margin, top_inner_z - inner_h/2))
             .val()
     )
 
     shell = outer_box - inner_box
 
     legs = (
-        Workplane("XY", origin=(0, 0, -from_pcb_top_to_shell_bottom))
+        Workplane("XY", origin=(0, 0, shell_inner_bottom_z))
             .pushPoints(pcb_holes)
             .cylinder(leg_height, pcb_hole_d/2 + 0.5)
             .translate((0, 0, leg_height/2))
             .workplane(offset=leg_height)
             .pushPoints(pcb_holes)
-            .cylinder(pcb_h, (pcb_hole_d - shell_allowance)/2)
+            .cylinder(pcb_h, (pcb_hole_d - allowance)/2)
             .val()
     )
 
     bar_l = 13
-    bar_h = top_inner_z - shell_allowance
+    bar_h = top_inner_z - allowance
     bar = (
         Workplane("XY", origin=(0, 0, 0))
             .box(inner_w, bar_l, bar_h)
-            .translate((inner_w/2, inner_l - sd_l_margin - bar_l/2, bar_h/2 + shell_allowance))
+            .translate((inner_w/2, inner_l - sd_l_margin - bar_l/2, bar_h/2 + allowance))
             .val()
     )
 
-    rv = shell + legs + bar
+    rv = shell + bar + legs
     return rv
 
 def make_splitter(h, w, l, distance, leap_w, thickness):
@@ -138,18 +138,7 @@ def split_shell(part):
     top = parts[2]
     bottom = parts[0]
 
-    return  bottom
-
-rpi = Assembly()
-
-show_pcb = False
-if(show_pcb):
-    rpi.add(
-        make_pcb(), 
-        name="pcb", 
-        color=Color("darkseagreen")
-    )
-
+    return (top, bottom)
 
 def cut_shell_openings(shell, cutters):
     result = shell
@@ -203,6 +192,8 @@ connectors = [
     ),
 ]
 
+rpi = Assembly()
+
 cutters = []
 
 for conn in connectors:
@@ -215,11 +206,33 @@ for conn in connectors:
 
     cutters.append((conn.make_func(True), conn.position, conn.rotation))
 
+
+
+show_pcb = True
+if(show_pcb):
+    rpi.add(
+        make_pcb(), 
+        name="pcb", 
+        color=Color("darkseagreen")
+    )
+
+(shell_top, shell_bottom) = split_shell(cut_shell_openings(make_shell(), cutters))
+
 rpi.add(
-    split_shell(cut_shell_openings(make_shell(), cutters)),
-    name="shell",
-    color=Color("blue"),
+    shell_top,
+    name="shell-top",
+    color=Color("lightblue"),
+    #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
+)
+
+rpi.add(
+    shell_bottom,
+    name="shell-bottom",
+    color=Color("lightblue"),
     #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
 )
 
 show_object(rpi)
+
+exporters.export(shell_top, "shell_top.step", exporters.ExportTypes.STEP)
+exporters.export(shell_bottom, "shell_bottom.step", exporters.ExportTypes.STEP)

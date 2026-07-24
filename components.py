@@ -134,9 +134,13 @@ def make_sd(is_shell_cutter):
 
     if(is_shell_cutter):
         w += 2
-        pcb_offset += 1
         h += 0.4
         h_cutter_margin = 1.3
+
+        l_cutter_margin_front = 1
+        l_cutter_margin_back = 1
+        pcb_offset += l_cutter_margin_front
+        l += (l_cutter_margin_front + l_cutter_margin_back)
 
     rv = (
         Workplane("XY")
