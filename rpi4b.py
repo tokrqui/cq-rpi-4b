@@ -1,6 +1,7 @@
 from cadquery import *
 from cadquery.func import *
 from components import make_ethernet, make_usb_a, make_usb_c, make_sd, make_hdmi_mini
+from ConnectorItem import ConnectorItem
 
 pcb_w = 56
 pcb_l = 85
@@ -9,7 +10,7 @@ pcb_hole_padding = 3.5
 
 usb_h = 15.6
 
-shell_margin = 0.2
+shell_allowance = 0.2
 shell_wall_h_ext = 1
 wall_thicknes = 3
 
@@ -17,50 +18,86 @@ usb_c_y = pcb_hole_padding+7.7
 hdmi_mini_left_y = usb_c_y + 14.8
 hdmi_mini_right_y = hdmi_mini_left_y + 13.5
 
+pcb_hole_to_hole_y = 58
+pcb_holes = [
+    (pcb_hole_padding,pcb_hole_padding),
+    (pcb_w-pcb_hole_padding,pcb_hole_padding),
+    (pcb_hole_padding,pcb_hole_padding+pcb_hole_to_hole_y),
+    (pcb_w-pcb_hole_padding,pcb_hole_padding+pcb_hole_to_hole_y)
+]
+pcb_hole_d = 2.7
+
+
 def make_pcb():
     pcb_fillet_r = 3
-    pcb_hole_d = 2.7
-    pcb_hole_to_hole_y = 58
     rv = (
         Workplane("XY")
         .box(pcb_w, pcb_l, pcb_h)
         .edges("|Z").fillet(pcb_fillet_r)
         .faces(">Z").workplane(origin=(-pcb_w/2, -pcb_l/2))
-        .pushPoints([
-            (pcb_hole_padding,pcb_hole_padding),
-            (pcb_w-pcb_hole_padding,pcb_hole_padding),
-            (pcb_hole_padding,pcb_hole_padding+pcb_hole_to_hole_y),
-            (pcb_w-pcb_hole_padding,pcb_hole_padding+pcb_hole_to_hole_y)
-        ])
+        .pushPoints(pcb_holes)
         .hole(pcb_hole_d)
         .translate((pcb_w/2,pcb_l/2,-pcb_h/2))
     )
     return rv
 
 def make_shell():
-    wall_height = usb_h + wall_thicknes + shell_margin
-    inner_w = pcb_w + shell_margin
-    inner_l = pcb_l + shell_margin
+    sd_l_margin = 2
+    sd_h_margin = 1.5
+    inner_w = pcb_w + shell_allowance
+    inner_l = pcb_l + sd_l_margin + shell_allowance
     outer_w = inner_w + wall_thicknes*2
     outer_l = inner_l + wall_thicknes*2
 
-    bottom_walls_part_h = wall_thicknes+pcb_h+1.5+shell_margin
 
+    from_pcb_top_to_shell_bottom =  sd_h_margin + shell_allowance + pcb_h
+    leg_height = sd_h_margin
+    top_inner_z = usb_h + shell_allowance 
+    wall_top_z = top_inner_z + wall_thicknes
+    wall_bottom_z = -wall_thicknes - from_pcb_top_to_shell_bottom
 
-    walls_face = face(
-        rect(outer_w, outer_l),
-        rect(inner_w, inner_l),
+    outer_h = wall_top_z - wall_bottom_z
+    outer_box = (
+        Workplane("XY", origin=(0, 0, 0))
+            .box(outer_w, outer_l, outer_h)
+            .chamfer(wall_thicknes/2)
+            .translate((inner_w/2,inner_l/2-sd_l_margin,top_inner_z/2))
+            .val()
     )
 
-    walls = extrude(walls_face, (0,0,wall_height + bottom_walls_part_h)).translate((0,0,-bottom_walls_part_h))
+    inner_h = top_inner_z + from_pcb_top_to_shell_bottom
+    inner_box = (
+        Workplane("XY", origin=(0, 0, 0))
+            .box(inner_w, inner_l, inner_h)
+            #.chamfer(wall_thicknes/2)
+            .translate((inner_w/2,inner_l/2-sd_l_margin,top_inner_z/2))
+            .val()
+    )
 
-    top = extrude(plane(inner_w, inner_l), (0,0,wall_thicknes)).translate((0,0,wall_height-wall_thicknes))
-    bottom = extrude(plane(inner_w, inner_l), (0,0,wall_thicknes)).translate((0,0,-bottom_walls_part_h))
+    shell = outer_box - inner_box
 
-    rv = walls + top + bottom
-    #rv = base_inner_face
+    legs = (
+        Workplane("XY", origin=(0, 0, -from_pcb_top_to_shell_bottom))
+            .pushPoints(pcb_holes)
+            .cylinder(leg_height, pcb_hole_d/2 + 0.5)
+            .translate((0, 0, leg_height/2))
+            .workplane(offset=leg_height)
+            .pushPoints(pcb_holes)
+            .cylinder(pcb_h, (pcb_hole_d - shell_allowance)/2)
+            .val()
+    )
 
-    return rv.rotate((0, 0, 0), (0, 1, 0), 0).translate((pcb_w/2, pcb_l/2, 0))
+    bar_l = 13
+    bar_h = top_inner_z - shell_allowance
+    bar = (
+        Workplane("XY", origin=(0, 0, 0))
+            .box(inner_w, bar_l, bar_h)
+            .translate((inner_w/2, inner_l - sd_l_margin - bar_l/2, bar_h/2 + shell_allowance))
+            .val()
+    )
+
+    rv = shell + legs + bar
+    return rv
 
 def make_splitter(h, w, l, distance, leap_w, thickness):
     z_step = h / 5
@@ -87,8 +124,13 @@ def make_splitter(h, w, l, distance, leap_w, thickness):
     return thick + thick2
 
 def split_shell(part):
+    # return part
+
     # make splitter
-    splitter = make_splitter(3,0.5,110,pcb_w + wall_thicknes, 10, 0.1).translate((pcb_w/2,-10,0))
+    splitter = (
+        make_splitter(3,0.5,110,pcb_w + wall_thicknes, 10, 0.1)
+            .translate((pcb_w/2,-10, -0.2))
+    )
     #return splitter + part
 
     # split
@@ -96,63 +138,88 @@ def split_shell(part):
     top = parts[2]
     bottom = parts[0]
 
-    return top
+    return  bottom
 
-rpi = (
-    Assembly()
-    .add(
+rpi = Assembly()
+
+show_pcb = False
+if(show_pcb):
+    rpi.add(
         make_pcb(), 
         name="pcb", 
         color=Color("darkseagreen")
     )
-    .add(
-        make_ethernet(), 
+
+
+def cut_shell_openings(shell, cutters):
+    result = shell
+    for cutter in cutters:
+        result = result.cut(cutter[0].moved(Location(cutter[1], cutter[2])))
+
+    return result
+
+connectors = [
+    ConnectorItem(
         name="ethernet", 
-        color=Color("gray70"),
-        loc=Location(Vector(pcb_w-45.75,pcb_l,0))
-    )
-    .add(
-        make_usb_a(), 
-        name="usb-mid", 
-        color=Color("gray70"),
-        loc=Location(Vector(pcb_w-27,pcb_l,0))
-    )
-    .add(
-        make_usb_a(), 
+        make_func=make_ethernet, 
+        position=(pcb_w-45.75,pcb_l,0), 
+        rotation=(0,0,0)
+    ),
+    ConnectorItem(
         name="usb-left", 
-        color=Color("gray70"),
-        loc=Location(Vector(pcb_w-9,pcb_l,0))
-    )    
-    .add(
-        make_usb_c(), 
+        make_func=make_usb_a, 
+        position=(pcb_w-9,pcb_l,0), 
+        rotation=(0,0,0)
+    ),
+    ConnectorItem(
+        name="usb-mid", 
+        make_func=make_usb_a, 
+        position=(pcb_w-27,pcb_l,0), 
+        rotation=(0,0,0)
+    ),    
+    ConnectorItem(
         name="usb-c", 
-        color=Color("gray70"),
-        loc=Location((pcb_w,usb_c_y, 0), (0,0,-90))
-    )    
-    .add(
-        make_hdmi_mini(), 
+        make_func=make_usb_c, 
+        position=(pcb_w,usb_c_y, 0), 
+        rotation=(0,0,-90)
+    ),
+    ConnectorItem(
         name="hdmi-mini-left", 
-        color=Color("gray70"),
-        loc=Location((pcb_w, hdmi_mini_left_y, 0), (0,0,-90))
-    )       
-    .add(
-        make_hdmi_mini(), 
+        make_func=make_hdmi_mini, 
+        position=(pcb_w, hdmi_mini_left_y, 0), 
+        rotation=(0,0,-90)
+    ),
+    ConnectorItem(
         name="hdmi-mini-right", 
-        color=Color("gray70"),
-        loc=Location((pcb_w, hdmi_mini_right_y, 0), (0,0,-90))
-    )
-    .add(
-        make_sd(), 
+        make_func=make_hdmi_mini, 
+        position=(pcb_w, hdmi_mini_right_y, 0), 
+        rotation=(0,0,-90)
+    ),
+    ConnectorItem(
         name="sd", 
+        make_func=make_sd, 
+        position=(pcb_w/2, 0, -pcb_h), 
+        rotation=(180,0,0)
+    ),
+]
+
+cutters = []
+
+for conn in connectors:
+    rpi.add(
+        conn.make_func(False),
+        name=conn.name,
         color=Color("gray70"),
-        loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
+        loc=Location(conn.position, conn.rotation)
     )
-    .add(
-        split_shell(make_shell()),
-        name="shell",
-        color=Color("blue"),
-        #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
-    )
+
+    cutters.append((conn.make_func(True), conn.position, conn.rotation))
+
+rpi.add(
+    split_shell(cut_shell_openings(make_shell(), cutters)),
+    name="shell",
+    color=Color("blue"),
+    #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
 )
 
 show_object(rpi)
