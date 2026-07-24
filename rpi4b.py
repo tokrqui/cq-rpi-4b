@@ -11,7 +11,7 @@ usb_h = 15.6
 
 shell_margin = 0.2
 shell_wall_h_ext = 1
-
+wall_thicknes = 3
 
 usb_c_y = pcb_hole_padding+7.7
 hdmi_mini_left_y = usb_c_y + 14.8
@@ -38,7 +38,6 @@ def make_pcb():
     return rv
 
 def make_shell():
-    wall_thicknes = 2
     wall_height = usb_h + wall_thicknes + shell_margin
     inner_w = pcb_w + shell_margin
     inner_l = pcb_l + shell_margin
@@ -68,7 +67,7 @@ def make_splitter(h, w, l, distance, leap_w, thickness):
     y_step = w / 3
 
     edge = (
-        Workplane("ZY")
+        Workplane("ZX")
         .moveTo(0, 0)
         .lineTo(0*z_step, distance/2 + 0*y_step)
         .spline([
@@ -77,24 +76,25 @@ def make_splitter(h, w, l, distance, leap_w, thickness):
             (3*z_step, distance/2 + -1*y_step),
             (4*z_step, distance/2 + 0*y_step),
         ], includeCurrent=True) # fix tangents
-        .lineTo(4*z_step,leap_w)
+        .lineTo(4*z_step, distance/2 + leap_w)
         .wire().val()
     )
 
-    edge2 = edge.translate((l, 0, 0))
+    edge2 = edge.translate((0, l, 0))
     shell = Face.makeRuledSurface(edge, edge2)
     thick = offset(shell, thickness/2, both=True)
-    thick2 = thick.mirror("XZ")
+    thick2 = thick.mirror("YZ")
     return thick + thick2
 
 def split_shell(part):
     # make splitter
-    splitter = make_splitter(2,1,50,30,30,0.2)
-    return splitter
+    splitter = make_splitter(3,0.5,110,pcb_w + wall_thicknes, 10, 0.1).translate((pcb_w/2,-10,0))
+    #return splitter + part
 
     # split
-    top = part.cut(splitter).intersect(left_volume)
-    bottom = part.cut(splitter).intersect(right_volume)
+    parts = split(part, splitter).Solids()
+    top = parts[2]
+    bottom = parts[0]
 
     return top
 
@@ -148,11 +148,11 @@ rpi = (
         loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
     )
     .add(
-        make_shell(),
-        name="shell-top",
+        split_shell(make_shell()),
+        name="shell",
         color=Color("blue"),
         #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
     )
 )
 
-show_object(split_shell(make_shell()))
+show_object(rpi)
