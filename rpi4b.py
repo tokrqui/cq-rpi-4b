@@ -10,9 +10,9 @@ pcb_hole_padding = 3.5
 
 usb_h = 15.6
 
-allowance = 0.2
+shell_allowance = 0.4
 shell_wall_h_ext = 1
-wall_thicknes = 3
+wall_thicknes = 2.8
 
 usb_c_y = pcb_hole_padding+7.7
 hdmi_mini_left_y = usb_c_y + 14.8
@@ -45,15 +45,15 @@ def make_pcb():
 def make_shell():
     sd_l_margin = 2
     sd_h_margin = 1.5
-    inner_w = pcb_w + allowance
-    inner_l = pcb_l + sd_l_margin + allowance
+    inner_w = pcb_w + shell_allowance
+    inner_l = pcb_l + sd_l_margin + shell_allowance
     outer_w = inner_w + wall_thicknes*2
     outer_l = inner_l + wall_thicknes*2
 
 
-    shell_inner_bottom_z =  -pcb_h - sd_h_margin - allowance 
+    shell_inner_bottom_z =  -pcb_h - sd_h_margin - shell_allowance 
     leg_height = sd_h_margin
-    top_inner_z = usb_h + allowance 
+    top_inner_z = usb_h + shell_allowance 
     wall_outer_top_z = top_inner_z + wall_thicknes
     wall_outer_bottom_z = -wall_thicknes + shell_inner_bottom_z
 
@@ -62,7 +62,7 @@ def make_shell():
         Workplane("XY", origin=(0, 0, 0))
             .box(outer_w, outer_l, outer_h)
             .chamfer(wall_thicknes/2)
-            .translate((inner_w/2, inner_l/2-sd_l_margin, top_inner_z/2))
+            .translate((inner_w/2, inner_l/2-sd_l_margin, outer_h/2 + wall_outer_bottom_z))
             .val()
     )
 
@@ -84,16 +84,16 @@ def make_shell():
             .translate((0, 0, leg_height/2))
             .workplane(offset=leg_height)
             .pushPoints(pcb_holes)
-            .cylinder(pcb_h, (pcb_hole_d - allowance)/2)
+            .cylinder(pcb_h, (pcb_hole_d - shell_allowance)/2)
             .val()
     )
 
     bar_l = 13
-    bar_h = top_inner_z - allowance
+    bar_h = top_inner_z - shell_allowance
     bar = (
         Workplane("XY", origin=(0, 0, 0))
             .box(inner_w, bar_l, bar_h)
-            .translate((inner_w/2, inner_l - sd_l_margin - bar_l/2, bar_h/2 + allowance))
+            .translate((inner_w/2, inner_l - sd_l_margin - bar_l/2, bar_h/2 + shell_allowance))
             .val()
     )
 
