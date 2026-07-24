@@ -1,6 +1,6 @@
 from cadquery import *
 from cadquery.func import *
-from components import make_ethernet, make_usb_a, make_usb_c, make_sd, make_hdmi_mini
+from components import make_ethernet, make_usb_a, make_usb_c, make_sd, make_hdmi_mini, make_jack
 from ConnectorItem import ConnectorItem
 
 pcb_w = 56
@@ -17,6 +17,7 @@ wall_thicknes = 3
 usb_c_y = pcb_hole_padding+7.7
 hdmi_mini_left_y = usb_c_y + 14.8
 hdmi_mini_right_y = hdmi_mini_left_y + 13.5
+jack_y = hdmi_mini_right_y + 7 + 7.5
 
 pcb_hole_to_hole_y = 58
 pcb_holes = [
@@ -185,6 +186,12 @@ connectors = [
         rotation=(0,0,-90)
     ),
     ConnectorItem(
+        name="jack", 
+        make_func=make_jack,
+        position=(pcb_w, jack_y, 0),
+        rotation=(0,0,0)
+    ),
+    ConnectorItem(
         name="sd", 
         make_func=make_sd, 
         position=(pcb_w/2, 0, -pcb_h), 
@@ -208,7 +215,7 @@ for conn in connectors:
 
 
 
-show_pcb = True
+show_pcb = False
 if(show_pcb):
     rpi.add(
         make_pcb(), 

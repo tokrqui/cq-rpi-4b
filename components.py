@@ -1,5 +1,7 @@
 from cadquery import *
 
+eps = 1e-4
+
 def make_usb_a(is_shell_cutter):
     w = 14.5
     l = 17.7
@@ -79,9 +81,6 @@ def make_ethernet(is_shell_cutter):
     return rv
 
 def make_usb_c(is_shell_cutter):
-    #is_shell_cutter = True
-
-    eps = 1e-4
     w = 9
     l = 9
     h = 3.25
@@ -98,10 +97,24 @@ def make_usb_c(is_shell_cutter):
     rv = (
         Workplane("XY")
         .box(w, l, h + h_cutter_margin)
-        .edges("|Y").fillet((h + h_cutter_margin)/2-eps)
-        .translate((0, pcb_offset-l/2, (h - h_cutter_margin)/2))
-        .val()
+        .edges("|Y")
+        .fillet((h + h_cutter_margin)/2-eps)
     )
+
+    if(is_shell_cutter):
+        cut_box_h = 1.8
+        rv = rv + (
+            Workplane("XY")
+                .box(w, l, cut_box_h)
+                .translate((0 ,-1.3, -cut_box_h/2))
+        )
+
+    rv = (
+        rv
+            .translate((0, pcb_offset-l/2, (h - h_cutter_margin)/2))
+            .val()
+        )
+
     return rv
 
 def make_hdmi_mini(is_shell_cutter):
@@ -149,3 +162,41 @@ def make_sd(is_shell_cutter):
         .val()
     )
     return rv
+
+def make_jack(is_shell_cutter):
+    d = 6.05
+    d_cutter_margin = 0
+    l = 2.6
+    l_cutter_margin = 0
+    pcb_offset = 2.35
+
+    if(is_shell_cutter):
+        d_cutter_margin = 0.5
+        l_cutter_margin = 0.2
+
+    l += l_cutter_margin
+    pcb_offset += l_cutter_margin
+    
+    rv = (
+        Workplane("YZ")
+        .cylinder((d + d_cutter_margin)/2, 2.6)
+        .translate((pcb_offset-l/2, 0, (d)/2))
+        .val()
+    )
+
+    if(not is_shell_cutter):
+        rv = (
+            Workplane("YZ")
+            .cylinder((d + d_cutter_margin)/2, 2.6)
+            .translate((pcb_offset-l/2, 0, (d)/2))
+            .val()
+        )
+    else:
+        rv = (
+            Workplane("XY")
+            .box(l + l_cutter_margin, d + d_cutter_margin, d + d_cutter_margin)
+            #.box(10,10,10)
+            .translate((pcb_offset-l/2, 0, (d)/2))
+            .val()
+        )
+    return rv    
