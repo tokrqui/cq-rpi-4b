@@ -37,7 +37,7 @@ def make_pcb():
     )
     return rv
 
-def make_shell_top():
+def make_shell():
     wall_thicknes = 2
     wall_height = usb_h + wall_thicknes + shell_margin
     inner_w = pcb_w + shell_margin
@@ -62,6 +62,41 @@ def make_shell_top():
     #rv = base_inner_face
 
     return rv.rotate((0, 0, 0), (0, 1, 0), 0).translate((pcb_w/2, pcb_l/2, 0))
+
+def make_splitter(h, w, l, distance, leap_w, thickness):
+    z_step = h / 5
+    y_step = w / 3
+
+    edge = (
+        Workplane("ZY")
+        .moveTo(0, 0)
+        .lineTo(0*z_step, distance/2 + 0*y_step)
+        .spline([
+            (1*z_step, distance/2 + 1*y_step),
+            (2*z_step, distance/2 + 0*y_step),
+            (3*z_step, distance/2 + -1*y_step),
+            (4*z_step, distance/2 + 0*y_step),
+        ], includeCurrent=True) # fix tangents
+        .lineTo(4*z_step,leap_w)
+        .wire().val()
+    )
+
+    edge2 = edge.translate((l, 0, 0))
+    shell = Face.makeRuledSurface(edge, edge2)
+    thick = offset(shell, thickness/2, both=True)
+    thick2 = thick.mirror("XZ")
+    return thick + thick2
+
+def split_shell(part):
+    # make splitter
+    splitter = make_splitter(2,1,50,30,30,0.2)
+    return splitter
+
+    # split
+    top = part.cut(splitter).intersect(left_volume)
+    bottom = part.cut(splitter).intersect(right_volume)
+
+    return top
 
 rpi = (
     Assembly()
@@ -113,11 +148,11 @@ rpi = (
         loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
     )
     .add(
-        make_shell_top(),
+        make_shell(),
         name="shell-top",
         color=Color("blue"),
         #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
     )
 )
 
-show_object(rpi)
+show_object(split_shell(make_shell()))
