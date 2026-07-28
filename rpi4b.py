@@ -1,5 +1,5 @@
-from cadquery import *
-from cadquery.func import *
+from cadquery import cq, Assembly, Color, Location, exporters
+from cadquery.func import Face, offset, split
 from components import make_ethernet, make_usb_a, make_usb_c, make_sd, make_hdmi_mini, make_jack
 from ConnectorItem import ConnectorItem
 
@@ -13,6 +13,7 @@ usb_h = 15.6
 shell_allowance = 0.4
 shell_wall_h_ext = 1
 wall_thicknes = 2.8
+side_wall_thicknes = 4
 
 usb_c_y = pcb_hole_padding+7.7
 hdmi_mini_left_y = usb_c_y + 14.8
@@ -32,10 +33,10 @@ pcb_hole_d = 2.7
 def make_pcb():
     pcb_fillet_r = 3
     rv = (
-        Workplane("XY")
+        cq.Workplane("XY")
         .box(pcb_w, pcb_l, pcb_h)
         .edges("|Z").fillet(pcb_fillet_r)
-        .faces(">Z").workplane(origin=(-pcb_w/2, -pcb_l/2))
+        .faces(">Z").cq.Workplane(origin=(-pcb_w/2, -pcb_l/2))
         .pushPoints(pcb_holes)
         .hole(pcb_hole_d)
         .translate((pcb_w/2,pcb_l/2,-pcb_h/2))
@@ -47,7 +48,7 @@ def make_shell():
     sd_h_margin = 1.5
     inner_w = pcb_w + shell_allowance
     inner_l = pcb_l + sd_l_margin + shell_allowance
-    outer_w = inner_w + wall_thicknes*2
+    outer_w = inner_w + side_wall_thicknes*2
     outer_l = inner_l + wall_thicknes*2
 
 
@@ -59,7 +60,7 @@ def make_shell():
 
     outer_h = wall_outer_top_z - wall_outer_bottom_z
     outer_box = (
-        Workplane("XY", origin=(0, 0, 0))
+        cq.Workplane("XY", origin=(0, 0, 0))
             .box(outer_w, outer_l, outer_h)
             .chamfer(wall_thicknes/2)
             .translate((inner_w/2, inner_l/2-sd_l_margin, outer_h/2 + wall_outer_bottom_z))
@@ -68,17 +69,32 @@ def make_shell():
 
     inner_h = top_inner_z - shell_inner_bottom_z
     inner_box = (
-        Workplane("XY", origin=(0, 0, 0))
+        cq.Workplane("XY", origin=(0, 0, 0))
             .box(inner_w, inner_l, inner_h)
-            #.chamfer(wall_thicknes/2)
             .translate((inner_w/2, inner_l/2-sd_l_margin, top_inner_z - inner_h/2))
             .val()
     )
 
     shell = outer_box - inner_box
 
+    # remove thickness
+    side_cutter_l = 47
+    side_cutter_w = 10
+    side_cutter_h = outer_h
+    side_cutter = (
+        cq.Workplane("XY", origin=(0, 0, 0))
+            .box(side_cutter_w, side_cutter_l, side_cutter_h)
+            .faces("<X")
+            .edges("|Z")
+            .chamfer(2.5)
+            .translate((side_cutter_w/2 + pcb_w + 2, side_cutter_l/2 + 2, side_cutter_h/2 + wall_outer_bottom_z))
+            .val()
+        )
+
+    shell = shell - side_cutter        
+
     legs = (
-        Workplane("XY", origin=(0, 0, shell_inner_bottom_z))
+        cq.Workplane("XY", origin=(0, 0, shell_inner_bottom_z))
             .pushPoints(pcb_holes)
             .cylinder(leg_height, pcb_hole_d/2 + 0.5)
             .translate((0, 0, leg_height/2))
@@ -91,7 +107,7 @@ def make_shell():
     bar_l = 13
     bar_h = top_inner_z - shell_allowance
     bar = (
-        Workplane("XY", origin=(0, 0, 0))
+        cq.Workplane("XY", origin=(0, 0, 0))
             .box(inner_w, bar_l, bar_h)
             .translate((inner_w/2, inner_l - sd_l_margin - bar_l/2, bar_h/2 + shell_allowance))
             .val()
@@ -101,11 +117,12 @@ def make_shell():
     return rv
 
 def make_splitter(h, w, l, distance, leap_w, thickness):
-    z_step = h / 5
-    y_step = w / 3
+    corrected_h = h - thickness
+    z_step = corrected_h / 4
+    y_step = w / 2
 
     edge = (
-        Workplane("ZX")
+        cq.Workplane("ZX")
         .moveTo(0, 0)
         .lineTo(0*z_step, distance/2 + 0*y_step)
         .spline([
@@ -124,12 +141,34 @@ def make_splitter(h, w, l, distance, leap_w, thickness):
     thick2 = thick.mirror("YZ")
     return thick + thick2
 
+def make_splitter_2(h, w, l, distance, leap_w, thickness, cut_w, cut_l):
+    splitter = make_splitter(h, w, l, distance, leap_w, thickness)
+
+    cut_h = h - thickness * 2
+    cut = (
+        cq.Workplane("XY", origin=(distance/2, cut_l/2 + 12, cut_h/2))
+            .box(cut_w, cut_l, cut_h + thickness)
+        )
+    
+    add = (
+        cut
+            .faces("-Z or |X")
+            .shell(0.1)
+    )
+
+    splitten = split(add.val(), splitter).Solids()
+
+    return splitter - cut.val() + splitten[2]
+
+# splitter = make_splitter_2(4, 0.8, 110, pcb_w + side_wall_thicknes, 10, 0.07, 5, 49)
+# show_object(splitter)
+
 def split_shell(part):
     # return part
 
     # make splitter
     splitter = (
-        make_splitter(3,0.5,110,pcb_w + wall_thicknes, 10, 0.1)
+        make_splitter_2(3.7, 0.8, 110, pcb_w + side_wall_thicknes, 10, 0.07, 5, 49)
             .translate((pcb_w/2,-10, -0.2))
     )
     #return splitter + part
@@ -225,18 +264,16 @@ if(show_pcb):
 
 (shell_top, shell_bottom) = split_shell(cut_shell_openings(make_shell(), cutters))
 
-rpi.add(
-    shell_top,
-    name="shell-top",
-    color=Color("lightblue"),
-    #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
-)
+# rpi.add(
+#     shell_top,
+#     name="shell-top",
+#     color=Color("lightblue"),
+# )
 
 rpi.add(
     shell_bottom,
     name="shell-bottom",
     color=Color("lightblue"),
-    #loc=Location((pcb_w/2, 0, -pcb_h), (180,0,0))
 )
 
 show_object(rpi)

@@ -85,6 +85,7 @@ def make_usb_c(is_shell_cutter):
     l = 9
     h = 3.25
     h_cutter_margin = 0
+    l_cutter_margin = 0
     pcb_offset = 1.2
     plug_shell_distance = 2
 
@@ -92,7 +93,11 @@ def make_usb_c(is_shell_cutter):
         w += 0.4
         h += 0.2
         h_cutter_margin = 0.2
+        l_cutter_margin = 2
         pcb_offset += plug_shell_distance
+
+    pcb_offset += l_cutter_margin
+    l += l_cutter_margin
     
     rv = (
         Workplane("XY")
@@ -105,8 +110,8 @@ def make_usb_c(is_shell_cutter):
         cut_box_h = 1.8
         rv = rv + (
             Workplane("XY")
-                .box(w, l, cut_box_h)
-                .translate((0 ,-1.3, -cut_box_h/2))
+                .box(w, l, h + h_cutter_margin)
+                .translate((0 , 0, 0))
         )
 
     rv = (
@@ -120,7 +125,7 @@ def make_usb_c(is_shell_cutter):
 def make_hdmi_mini(is_shell_cutter):
     w = 7.2
     l = 7
-    h = 4.75
+    h = 3.5
     pcb_offset = 1.5
     h_cutter_margin = 0
 
@@ -172,7 +177,7 @@ def make_jack(is_shell_cutter):
 
     if(is_shell_cutter):
         d_cutter_margin = 0.5
-        l_cutter_margin = 0.2
+        l_cutter_margin = 0.4
 
     l += l_cutter_margin
     pcb_offset += l_cutter_margin
