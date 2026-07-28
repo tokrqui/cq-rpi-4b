@@ -264,11 +264,11 @@ if(show_pcb):
 
 (shell_top, shell_bottom) = split_shell(cut_shell_openings(make_shell(), cutters))
 
-# rpi.add(
-#     shell_top,
-#     name="shell-top",
-#     color=Color("lightblue"),
-# )
+rpi.add(
+    shell_top,
+    name="shell-top",
+    color=Color("lightblue"),
+)
 
 rpi.add(
     shell_bottom,
