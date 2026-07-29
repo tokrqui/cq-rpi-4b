@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from cadquery import cq, Assembly, Color, Location, exporters
 from cadquery.func import Face, offset, split
+
 from components import make_ethernet, make_usb_a, make_usb_c, make_sd, make_hdmi_mini, make_jack
 from ConnectorItem import ConnectorItem
 
@@ -312,7 +315,9 @@ rpi.add(
     color=Color("lightblue"),
 )
 
+out_path = "./out/"
 show_object(rpi)
-
-exporters.export(shell_top, "shell_top.step", exporters.ExportTypes.STEP)
-exporters.export(shell_bottom, "shell_bottom.step", exporters.ExportTypes.STEP)
+if(not(Path(out_path).exists())):
+    Path.mkdir(out_path)
+exporters.export(shell_top, out_path + "shell_top.step", exporters.ExportTypes.STEP)
+exporters.export(shell_bottom, out_path + "shell_bottom.step", exporters.ExportTypes.STEP)
