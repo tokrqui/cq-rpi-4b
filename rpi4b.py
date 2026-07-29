@@ -78,20 +78,38 @@ def make_shell():
     shell = outer_box - inner_box
 
     #holes
-    shell_top_vent_holes = []
+    top_vent_holes = []
     for row in range(3, 3 * 18, 4):
-        for column in range(3, 3 * 18, 8):
-            shell_top_vent_holes.append((row, column))
+        for column in range(3, 7 * 7, 7):
+            top_vent_holes.append((row, column))
 
     for row in range(3, 3 * 17, 4):
-        for column in range(3, 3 * 18, 8):
-            shell_top_vent_holes.append((row + 2, column + 4))
+        for column in range(3, 6 * 7, 7):
+            top_vent_holes.append((row + 2, column + 3.5))
 
     shell = (
-        cq.Workplane(obj=shell)
+        cq.Workplane("XY", obj=shell)
             .faces(">Z")
             .workplane()
-            .pushPoints(shell_top_vent_holes)
+            .pushPoints(top_vent_holes)
+            .hole(2, wall_thicknes)
+            .val()
+    )
+
+    side_vent_holes = []
+    for row in range(3, 3 * 18, 4):
+        for column in range(3, 7 * 2, 7):
+            side_vent_holes.append((row, column))
+
+    for row in range(3, 3 * 17, 4):
+        for column in range(3, 7 * 1, 7):
+            side_vent_holes.append((row + 2, column + 3.5))
+
+    shell = (
+        cq.Workplane("XZ", obj=shell, origin=(0,0,3))
+            .faces("<Y")
+            .workplane()
+            .pushPoints(side_vent_holes)
             .hole(2, wall_thicknes)
             .val()
     )
