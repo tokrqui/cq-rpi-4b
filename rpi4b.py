@@ -36,7 +36,7 @@ def make_pcb():
         cq.Workplane("XY")
         .box(pcb_w, pcb_l, pcb_h)
         .edges("|Z").fillet(pcb_fillet_r)
-        .faces(">Z").cq.Workplane(origin=(-pcb_w/2, -pcb_l/2))
+        .faces(">Z").workplane(origin=(-pcb_w/2, -pcb_l/2))
         .pushPoints(pcb_holes)
         .hole(pcb_hole_d)
         .translate((pcb_w/2,pcb_l/2,-pcb_h/2))
@@ -77,6 +77,25 @@ def make_shell():
 
     shell = outer_box - inner_box
 
+    #holes
+    shell_top_vent_holes = []
+    for row in range(3, 3 * 18, 4):
+        for column in range(3, 3 * 18, 8):
+            shell_top_vent_holes.append((row, column))
+
+    for row in range(3, 3 * 17, 4):
+        for column in range(3, 3 * 18, 8):
+            shell_top_vent_holes.append((row + 2, column + 4))
+
+    shell = (
+        cq.Workplane(obj=shell)
+            .faces(">Z")
+            .workplane()
+            .pushPoints(shell_top_vent_holes)
+            .hole(2, wall_thicknes)
+            .val()
+    )
+
     # remove thickness
     side_cutter_l = 47
     side_cutter_w = 10
@@ -91,7 +110,7 @@ def make_shell():
             .val()
         )
 
-    shell = shell - side_cutter        
+    shell = shell - side_cutter
 
     legs = (
         cq.Workplane("XY", origin=(0, 0, shell_inner_bottom_z))
@@ -115,6 +134,8 @@ def make_shell():
 
     rv = shell + bar + legs
     return rv
+
+#show_object(make_shell())
 
 def make_splitter(h, w, l, distance, leap_w, thickness):
     corrected_h = h - thickness
@@ -159,9 +180,6 @@ def make_splitter_2(h, w, l, distance, leap_w, thickness, cut_w, cut_l):
     splitten = split(add.val(), splitter).Solids()
 
     return splitter - cut.val() + splitten[2]
-
-# splitter = make_splitter_2(4, 0.8, 110, pcb_w + side_wall_thicknes, 10, 0.07, 5, 49)
-# show_object(splitter)
 
 def split_shell(part):
     # return part
@@ -254,7 +272,7 @@ for conn in connectors:
 
 
 
-show_pcb = False
+show_pcb = True
 if(show_pcb):
     rpi.add(
         make_pcb(), 
